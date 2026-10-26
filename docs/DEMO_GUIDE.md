@@ -29,7 +29,7 @@ Open **Register citizen** and enter:
 - Phone: `0000000101`
 - Address: `14 Example Lane, Demo Nagar`
 
-Click **Check for duplicates**. The matching citizen names appear immediately after the check, before any save. Click **Continue to review** to show that keeping a separate record needs an explicit checkbox and a reason. Then click **Cancel** so this demonstration does not add extra records.
+Click **Check for duplicates**. The error **Phone number already exists.** appears and no save is offered. This is the explicit phone-uniqueness rule. Now change the phone to fictional `0000000999` and check again. The other identical fields produce probable candidates. Click **Continue to review** to show that keeping a separate record with a different phone needs an explicit checkbox and reason. Then click **Cancel** so this demonstration does not add extra records.
 
 ## 2:15 - Save a human decision
 
@@ -45,7 +45,7 @@ Return to **Duplicate review**, select the exact pair, choose **Confirmed duplic
 
 **Why index the fingerprint?** SQLite can look up a hash through its index rather than scanning every stored hash.
 
-**Why is the fingerprint index not unique?** The user may explicitly keep a flagged record after review. We want candidate detection, not automatic rejection.
+**Why is the fingerprint index not unique?** Existing records and intentionally duplicated demo fixtures are preserved. New same-phone registrations are blocked by a transaction-time phone check. Similarity-only candidates with a different phone can still be kept after human review.
 
 **Why SHA-256 and RapidFuzz?** Hashing finds identical normalized values. Fuzzy matching handles small text differences. They solve different parts of the problem.
 

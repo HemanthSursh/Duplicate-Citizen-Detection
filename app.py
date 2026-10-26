@@ -5,13 +5,14 @@ import os
 import pandas as pd
 import streamlit as st
 from citizen.database import Registry, NewMatchesError
+from citizen.config import database_path
 from citizen.demo import DEMO
 from citizen.documents import validate_documents
 from citizen.matching import FIELDS, THRESHOLD, WEIGHTS, validate, serialize, fingerprint
 
 st.set_page_config(page_title="Citizen records | Duplicate detection", page_icon="🔎", layout="wide")
 ROOT = Path(__file__).resolve().parent
-registry = Registry(os.environ.get("CITIZEN_DB", ROOT / "storage" / "citizens.sqlite3"))
+registry = Registry(database_path())
 LABELS = {"full_name": "Full name", "dob": "Date of birth", "phone": "Phone number", "address": "Address"}
 PAGES = ["Dashboard", "Register citizen", "Citizen records", "Duplicate review"]
 
@@ -127,7 +128,7 @@ with st.sidebar:
     page = st.radio("Workspace", PAGES, key="nav", label_visibility="collapsed")
     st.divider()
     st.markdown("**Local by design**")
-    st.caption("SQLite storage. No external API. Human decisions, always.")
+    st.caption("Shared SQLite storage. Optional local REST API. Human decisions, always.")
     with st.expander("Demo data"):
         st.caption("Load 8 fictional records once. Includes exact and probable candidates for a presentation. Nothing is loaded automatically.")
         if st.button("Load fictional demo", width="stretch"):
@@ -209,6 +210,7 @@ elif page == "Register citizen":
         try:
             data = validate(dict(full_name=name, dob=dob.isoformat() if dob else "", phone=phone, address=address))
             data.update(validate_documents(dict(aadhaar_ref=aadhaar, licence_ref=licence)))
+            registry.ensure_phone_available(data)
             matches = registry.check(data)
             st.session_state["pending"] = {"data": data, "matches": matches, "review": False}
         except ValueError as exc:

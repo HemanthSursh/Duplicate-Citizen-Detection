@@ -12,8 +12,15 @@ def utcnow():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+class DuplicatePhoneError(ValueError):
+    def __init__(self):
+        super().__init__("Phone number already exists.")
+
+
 class NewMatchesError(ValueError):
-    pass
+    def __init__(self, message, matches=()):
+        super().__init__(message)
+        self.matches = list(matches)
 
 
 class Registry:
@@ -83,11 +90,27 @@ class Registry:
         ))
         return record_id
 
+    @staticmethod
+    def _phone_exists(db, phone):
+        # Existing display storage may include a plus; match the engine's digit convention.
+        digits = phone.lstrip("+")
+        return db.execute("SELECT 1 FROM citizens WHERE replace(replace(replace(replace(replace(phone,'+',''),' ',''),'(',''),')',''),'-','')=? LIMIT 1", (digits,)).fetchone() is not None
+
+    def phone_exists(self, phone):
+        with self.connection() as db:
+            return self._phone_exists(db, phone)
+
+    def ensure_phone_available(self, data):
+        if self.phone_exists(validate(data)["phone"]):
+            raise DuplicatePhoneError()
+
     def register(self, data, reviewed_ids=(), note=""):
         data = {**validate(data), **validate_documents(data)}
         with self.connection() as db:
             # Recheck under the write lock. Another session cannot slip in between check and save.
             db.execute("BEGIN IMMEDIATE")
+            if self._phone_exists(db, data["phone"]):
+                raise DuplicatePhoneError()
             # Indexed exact lookup is also performed inside the save transaction.
             exact_rows = [dict(r) for r in db.execute("SELECT * FROM citizens WHERE fingerprint=?", (fingerprint(data),))]
             exact_ids = {r["id"] for r in exact_rows}
@@ -95,7 +118,7 @@ class Registry:
             matches = candidates(data, exact_rows + remaining)
             expected = set(reviewed_ids)
             if any(m["record"]["id"] not in expected for m in matches):
-                raise NewMatchesError("Potential matches changed. Check this record again before saving.")
+                raise NewMatchesError("Potential matches changed. Check this record again before saving.", matches)
             if matches and not note.strip():
                 raise ValueError("Add a review reason before saving a flagged record.")
             return self._insert(db, data, note.strip() if matches else "")

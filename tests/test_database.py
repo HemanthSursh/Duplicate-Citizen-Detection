@@ -28,31 +28,28 @@ def test_index(registry):
     assert "idx_fingerprint" in plan
 
 
-def test_exact_requires_review(registry):
+def test_exact_phone_rejected_even_after_review(registry):
+    from citizen.database import DuplicatePhoneError
     rid = registry.register(DEMO[0])
-    with pytest.raises(NewMatchesError):
-        registry.register(DEMO[1])
-    with pytest.raises(ValueError):
-        registry.register(DEMO[1], [rid])
-    saved = registry.register(DEMO[1], [rid], "Keeping a demonstration duplicate")
-    assert saved != rid
-    assert registry.stats()["exact"] == 1
+    with pytest.raises(DuplicatePhoneError, match="Phone number already exists"):
+        registry.register(DEMO[1], [rid], "Reviewed")
+    assert len(registry.records()) == 1
 
 
 def test_probable_requires_review(registry):
-    rid = registry.register(DEMO[2])
+    rid = registry.register(DEMO[0])
+    data = {**DEMO[0], "phone": "0000000999"}
     with pytest.raises(NewMatchesError):
-        registry.register(DEMO[3])
-    registry.register(DEMO[3], [rid], "Reviewed details")
+        registry.register(data)
+    registry.register(data, [rid], "Reviewed details")
     assert registry.stats()["probable"] == 1
 
 
 def test_stale_review_blocked(registry):
-    first = registry.register(DEMO[0])
-    second = registry.register(DEMO[1], [first], "demo")
+    registry.load_demo(DEMO)
     with pytest.raises(NewMatchesError):
-        registry.register(DEMO[0], [first], "outdated snapshot")
-    assert len(registry.records()) == 2
+        registry.register({**DEMO[0], "phone": "0000000999"}, [registry.records()[0]["id"]], "outdated snapshot")
+    assert len(registry.records()) == 8
 
 
 def test_review_persists_without_modifying_records(registry):
@@ -123,3 +120,39 @@ def test_migration_from_original_schema(tmp_path):
     migrated = Registry(path)
     migrated.register(DEMO[0])
     assert migrated.records()[0]["aadhaar_ref"] == "DEMO-AAD-0001"
+
+
+@pytest.mark.parametrize("phone", ["+0000000101", "000 (000) 0101", "+000-000-0101"])
+def test_phone_business_rule_normalization(registry, phone):
+    from citizen.database import DuplicatePhoneError
+    registry.register(DEMO[0])
+    different_person = {**DEMO[6], "phone": phone}
+    assert registry.check(different_person) == []  # Not rejected by a similarity score.
+    with pytest.raises(DuplicatePhoneError, match="Phone number already exists"):
+        registry.register(different_person)
+    assert len(registry.records()) == 1
+
+
+def test_existing_duplicate_phones_preserved(registry):
+    registry.load_demo(DEMO)
+    before = registry.records()
+    reopened = Registry(registry.path)
+    assert reopened.records() == before
+    from citizen.database import DuplicatePhoneError
+    with pytest.raises(DuplicatePhoneError):
+        reopened.register(DEMO[0])
+    assert reopened.records() == before
+
+
+def test_concurrent_phone_registration(registry):
+    from concurrent.futures import ThreadPoolExecutor
+    from citizen.database import DuplicatePhoneError
+    def attempt(name):
+        try:
+            return registry.register({**DEMO[0], "full_name": name})
+        except DuplicatePhoneError:
+            return "blocked"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, ["First Fiction", "Other Fiction"]))
+    assert results.count("blocked") == 1
+    assert len(registry.records()) == 1

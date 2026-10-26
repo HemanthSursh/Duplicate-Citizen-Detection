@@ -47,6 +47,7 @@ def test_registration_workflow(app):
     assert not app.exception
     button(app, "Save citizen record").click().run()
     assert "Citizen saved." in app.success[0].value
+    app.text_input[1].set_value("0000000998")
     button(app, "Check for duplicates").click().run()
     assert "potential match" in app.warning[0].value
     button(app, "Continue to review").click().run()
@@ -58,7 +59,7 @@ def test_registration_workflow(app):
     assert "Citizen saved." in app.success[0].value
     app.sidebar.radio[0].set_value("Dashboard").run()
     assert app.metric[0].value == "2"
-    assert app.metric[1].value == "1"
+    assert app.metric[2].value == "1"
 
 
 def test_records_search(app):
@@ -88,7 +89,7 @@ def test_flagged_cancel_adds_nothing(app):
     app.sidebar.radio[0].set_value("Register citizen").run()
     app.text_input[0].set_value(DEMO[0]["full_name"])
     app.date_input[0].set_value(date(2001, 5, 12))
-    app.text_input[1].set_value(DEMO[0]["phone"])
+    app.text_input[1].set_value("0000000999")
     app.text_area[0].set_value(DEMO[0]["address"])
     button(app, "Check for duplicates").click().run()
     button(app, "Cancel registration").click().run()
@@ -120,3 +121,18 @@ def test_fictional_documents_registration(app):
     app.sidebar.radio[0].set_value("Citizen records").run()
     button(app, "Document Example").click().run()
     assert any("DEMO-AAD-TEST" in m.value for m in app.markdown)
+
+
+def test_phone_duplicate_error(app):
+    from datetime import date
+    button(app, "Load fictional demo").click().run()
+    app.sidebar.radio[0].set_value("Register citizen").run()
+    app.text_input[0].set_value("A Different Fictional Person")
+    app.date_input[0].set_value(date(2000, 1, 1))
+    app.text_input[1].set_value("+000 (000) 0101")
+    app.text_area[0].set_value("Another Fictional Address")
+    button(app, "Check for duplicates").click().run()
+    assert any(e.value == "Phone number already exists." for e in app.error)
+    assert not any(b.label in ("Save citizen record", "Save separate record") for b in app.button)
+    app.sidebar.radio[0].set_value("Dashboard").run()
+    assert app.metric[0].value == "8"

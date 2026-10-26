@@ -8,6 +8,7 @@ Four input fields
     -> display cleanup and normalized comparison values
     -> stable sorted JSON -> SHA-256 -> indexed exact lookup
     -> RapidFuzz screening of remaining records
+    -> existing normalized phone: block new registration
     -> no candidates: preview then save
     -> candidates: cancel OR review + reason + explicit separate-record save
     -> transaction rechecks matches before INSERT
@@ -35,9 +36,17 @@ The review screen scans unordered pairs, shows matching fields and weighted scor
 
 ## Practical choices
 
-A few short Python modules keep the project explainable. There is no unnecessary account system, upload workflow, API, trained model or framework beyond the requested stack. Pandas presents tables; SQLite owns permanent data. The interface has one sidebar and four screens, neutral surfaces, a blue action color, navy sidebar, highlighted home/dashboard and clickable-name profiles and explicit empty states.
+A few short Python modules keep the project explainable. There is no account system, upload workflow or trained model. An optional authenticated FastAPI interface reuses the same engine and SQLite registry. Pandas presents tables; SQLite owns permanent data. The interface has one sidebar and four screens, neutral surfaces, a blue action color, navy sidebar, highlighted home/dashboard and clickable-name profiles and explicit empty states.
 
 The exact fingerprint ignores letter casing and repeated whitespace, but does not remove address punctuation or guess abbreviations. The fuzzy rule handles some of those differences. No country-code inference is performed.
 
 Optional document references must start with DEMO-AAD- or DEMO-DL-. They are fictional display metadata, excluded from matching. A lightweight schema migration adds these columns to earlier local databases.
 
+
+## API extension
+
+`citizen/matching.py` remains unchanged. `citizen/service.py` maps its real match results into field explanations without stored personal details. API and dashboard share `citizen/config.py` and `Registry`. No schema change or second database was needed. NewMatchesError carries the candidates computed under the write lock so a 409 cannot be based on a stale second query.
+
+A user-requested exact-phone business rule now prevents new registrations with an existing normalized phone, even if the other details differ or a fuzzy review was acknowledged. It runs under the same BEGIN IMMEDIATE lock, preserving pre-existing duplicate data. The separate explicit fictional demo loader retains its intentionally duplicated fixtures. No UI or API edits/deletes existing records.
+
+The API key authorizes the whole local registry. No role/tenant isolation is implied. The separate sample client only calls HTTP; human review requests are downloadable local handoffs, not a notification service. See API.md for contracts and limits.

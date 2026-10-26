@@ -35,7 +35,7 @@ python3 -m venv .venv
 
 Open the local URL printed by Streamlit, usually `http://localhost:8501`. Keep the terminal open. Press **Ctrl+C** in that terminal to stop the app. To run it again, use just the final command above.
 
-There is no login or account setup. The server binds to `127.0.0.1`, so it is intended for your own computer, not a public deployment.
+The main local dashboard has no login. The optional REST API requires an API key. The server binds to `127.0.0.1`, so it is intended for your own computer, not a public deployment.
 
 ## Four simple screens
 
@@ -48,7 +48,7 @@ IDs are generated automatically as `CIT-` plus 12 random hexadecimal characters.
 
 ## Try the fictional demo
 
-The first launch starts with an empty database. In the sidebar, open **Demo data** and click **Load fictional demo**. This adds eight explicitly fictional records once. Phone strings starting with `000` are demonstration values, not contact numbers. The fixture includes `DEMO-AAD-...` and `DEMO-DL-...` fictional identity-document references. These are not real document numbers. The fixture includes `DEMO-AAD-...` and `DEMO-DL-...` fictional identity-document references. These are not real document numbers.
+The first launch starts with an empty database. In the sidebar, open **Demo data** and click **Load fictional demo**. This adds eight explicitly fictional records once. Phone strings starting with `000` are demonstration values, not contact numbers. The fixture includes `DEMO-AAD-...` and `DEMO-DL-...` fictional identity-document references. These are not real document numbers.
 
 On a fresh database this produces:
 
@@ -80,11 +80,13 @@ The four fields are selected together: name, date of birth, phone and address.
 5. Strip phone spaces, parentheses and hyphens. A leading `+` is ignored for matching. Require 7–15 ASCII digits. **No country code is added or removed.** Use the same country-code convention across records.
 6. Serialize named fields with `json.dumps(..., sort_keys=True, ensure_ascii=False, separators=(",", ":"))`.
 7. Hash the UTF-8 bytes with SHA-256.
-8. Query the indexed fingerprint before saving. The fingerprint index is deliberately **not unique** so an explicitly reviewed duplicate can be kept for demonstration.
+8. Query the indexed fingerprint before saving. The fingerprint index remains **not unique** to preserve existing/demo records. New registrations are separately guarded by the phone-uniqueness rule.
 
 Sorted-key JSON is deterministic and unambiguous. It avoids collisions caused by joining fields with a delimiter that can also appear in the data. An exact hash match identifies identical normalized field values, not a verified real-world identity. The UI shows matching citizen names and fields. Click a name to inspect the internal record ID in the profile details.
 
-A SQLite `BEGIN IMMEDIATE` transaction rechecks matches under a write lock at save time. If another session has added a new candidate since the preview, saving stops and the user must review the changed matches.
+New registrations using a phone number already in the registry are blocked with **Phone number already exists.** Phone formatting and a leading `+` do not bypass the rule; country codes are not inferred. This is an explicit phone-uniqueness rule, not a fuzzy-score decision. Existing records are never deleted. The intentionally duplicated fictional demo fixture is loaded through its separate explicit demo-data operation.
+
+A SQLite `BEGIN IMMEDIATE` transaction checks phone availability and rechecks matches under a write lock at save time. If another session has added a new candidate since the preview, saving stops and the user must review the changed matches.
 
 ## How probable detection works
 
@@ -97,7 +99,7 @@ A SQLite `BEGIN IMMEDIATE` transaction rechecks matches under a write lock at sa
 
 A non-exact pair becomes **Probable** when the weighted score is at least 78/100 **and** the name score is at least 65/100. Exact pairs are not counted again as probable. Scores are similarity measures, **not probabilities**, accuracy claims or proof of identity. The weights and threshold are simple demonstration rules defined in `citizen/matching.py`.
 
-The system can miss duplicates, especially when phone, birthday or country-code conventions differ. People with shared details can be flagged incorrectly. It never automatically merges, rejects or deletes records.
+The system can miss duplicates, especially when phone, birthday or country-code conventions differ. People with shared details can be flagged incorrectly. It never merges or deletes records or rejects a person solely because of a similarity score. The separate phone-uniqueness rule blocks registrations with an existing phone.
 
 ## Storage and safety
 
@@ -108,7 +110,7 @@ The system can miss duplicates, especially when phone, birthday or country-code 
 - `settings` prevents accidentally loading the demo twice.
 - SQL statements use parameters for record values.
 - No database, secrets, environment files or virtual environment belong in Git. `.gitignore` excludes them.
-- This is **not a production citizen database**: no authentication, role permissions, encryption, regulatory compliance, external identity checks or immutable audit log. SHA-256 here is a matching fingerprint, not encryption. Names, addresses, birthdays and phones remain readable in SQLite. Use fictional data only.
+- This is **not a production citizen database**: API-key authentication protects API calls only, not the dashboard. No tenant isolation, role permissions, encryption, regulatory compliance, external identity checks or immutable audit log. SHA-256 here is a matching fingerprint, not encryption. Names, addresses, birthdays and phones remain readable in SQLite. Use fictional data only.
 - Fuzzy registration is O(n); pair scanning is O(n²). This straightforward implementation suits a small college demo, not a large national registry.
 
 To reset your own demo: stop Streamlit, back up anything you want to keep, delete the `storage` folder, then start again. This permanently removes records and decisions from that local database. There is no destructive reset button in the UI.
@@ -162,3 +164,11 @@ git commit -m "Build focused duplicate citizen record detector"
 Create a **new empty repository** in your own GitHub account, then use the exact remote URL GitHub gives you. Do not paste passwords or tokens into source files, command history, issues or README files. Publishing is a separate step from running locally.
 
 No project-code license has been selected. Dependency licenses remain with their respective authors.
+
+## REST API and separate integration demo
+
+See [API integration guide](docs/API.md) for complete setup, commands for Windows/macOS/Linux, endpoint contracts, curl examples, authentication, safe errors, manual review and production limits.
+
+The API calls the existing `Registry.check` / transactional `Registry.register` and unchanged `citizen/matching.py`. The dashboard and API use the same database path. No second customer database is created. The separate sample client uses real HTTP calls and does not import the registry or detector.
+
+New files: `api/main.py` (routes, byte limits, safe logging), `api/models.py` (contracts), `api/security.py` (key), `citizen/config.py` (shared path), `citizen/service.py` (privacy-limited explanations), `sample_client/app.py` and `sample_client/client.py` (separate demo). New tests cover the API and sample client.

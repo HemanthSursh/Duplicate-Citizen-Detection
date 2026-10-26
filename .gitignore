@@ -7,3 +7,5 @@ storage/
 *.db
 .env
 .DS_Store
+.env.*
+*.log
