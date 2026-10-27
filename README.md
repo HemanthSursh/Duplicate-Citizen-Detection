@@ -172,3 +172,7 @@ See [API integration guide](docs/API.md) for complete setup, commands for Window
 The API calls the existing `Registry.check` / transactional `Registry.register` and unchanged `citizen/matching.py`. The dashboard and API use the same database path. No second customer database is created. The separate sample client uses real HTTP calls and does not import the registry or detector.
 
 New files: `api/main.py` (routes, byte limits, safe logging), `api/models.py` (contracts), `api/security.py` (key), `citizen/config.py` (shared path), `citizen/service.py` (privacy-limited explanations), `sample_client/app.py` and `sample_client/client.py` (separate demo). New tests cover the API and sample client.
+
+## Hosting the full app (demo)
+
+`Dockerfile` and `deploy/` run the dashboard and the REST API in one container behind one public port, so both use the same SQLite file. The dashboard is at `/`, the API at `/api/v1/...` and `/docs`. Set `CITIZEN_API_KEY` (32+ characters) as an environment variable on the host; if it is unset, a random key is generated at start and the API key cannot be used from outside. On free hosts the SQLite file resets on restart, so use fictional data only.
