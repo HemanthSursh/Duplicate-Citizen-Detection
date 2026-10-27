@@ -98,7 +98,7 @@ Liveness only, not database readiness. No key or personal data:
 
 ### POST /api/v1/duplicates/check
 
-Read-only. Returns 200 and actual candidates from the unchanged engine. Candidate output contains internal IDs, similarity and per-field scores, matching/differing field names, reasons and next steps. It never returns names, phone numbers, birthdays, addresses, document refs, stored hashes or review notes.
+Read-only. Returns 200 and actual candidates from the shared engine. Candidate output contains internal IDs, similarity and per-field scores, matching/differing field names, reasons and next steps. It never returns names, phone numbers, birthdays, addresses, document refs, stored hashes or review notes.
 
 Example **shape**, not a hardcoded response (IDs vary; `CIT-EXAMPLE` is a placeholder):
 ```json
@@ -118,6 +118,8 @@ Example **shape**, not a hardcoded response (IDs vary; `CIT-EXAMPLE` is a placeh
   "recommended_next_step": "review"
 }
 ```
+
+Candidate `kind` is `exact`, `probable` or `name_review`. The additive `name_review` value identifies equal normalized full names below the probable threshold; clients that validate enum values must accept it. Its reasons explain the name trigger and actual score, without claiming the threshold was met. Both check and registration use this rule; registration returns 409 `review_required`, without saving, for same-name candidates with an available phone. No new notification service or API review-bypass is added.
 
 A clean result has `potential_duplicates:false`, `candidates:[]`, `phone_number_exists:false` and `recommended_next_step:"continue"`. A reused phone can be present even without a fuzzy candidate: `phone_number_exists:true` then requires review/correction and blocks registration. It does not invent a candidate or similarity score. Field matches mean normalized equality; a fuzzy name/address can have a high score while still appearing in `differing_fields`. Similarity is **not a probability or identity proof**. No country codes are guessed.
 

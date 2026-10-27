@@ -1,16 +1,13 @@
 """Privacy-limited presentation of results from the existing matching engine."""
-from .matching import FIELDS, THRESHOLD
+from .matching import FIELDS, match_reasons
 
 
 def duplicate_response(matches):
     candidates = []
     for match in matches:
-        reasons = (["All four normalized fields have the same SHA-256 fingerprint."]
-                   if match["kind"] == "Exact" else
-                   [f"Weighted similarity {match['score']}/100 meets the {THRESHOLD}/100 threshold.",
-                    f"Name similarity {match['scores']['full_name']}/100 meets the 65/100 name guard."])
+        reasons = match_reasons(match)
         candidates.append({
-            "record_id": match["record"]["id"], "kind": match["kind"].lower(),
+            "record_id": match["record"]["id"], "kind": match["kind"].lower().replace(" ", "_"),
             "similarity_score": match["score"], "field_scores": match["scores"],
             "matching_fields": match["matching_fields"],
             "differing_fields": [f for f in FIELDS if f not in match["matching_fields"]],

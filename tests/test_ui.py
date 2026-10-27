@@ -17,7 +17,7 @@ def button(app, label):
 
 def test_empty_dashboard_and_navigation(app):
     assert not app.exception
-    assert [m.value for m in app.metric] == ["0", "0", "0", "0"]
+    assert [m.value for m in app.metric] == ["0", "0", "0", "0", "0"]
     button(app, "Open register citizen").click().run()
     assert "Check first" in app.title[0].value
     assert not app.exception
@@ -25,7 +25,7 @@ def test_empty_dashboard_and_navigation(app):
 
 def test_demo_dashboard_and_review(app):
     button(app, "Load fictional demo").click().run()
-    assert [m.value for m in app.metric] == ["8", "1", "2", "8"]
+    assert [m.value for m in app.metric] == ["8", "1", "2", "0", "8"]
     app.sidebar.radio[0].set_value("Duplicate review").run()
     assert not app.exception
     app.radio[1].set_value("Confirmed duplicate")
@@ -33,7 +33,7 @@ def test_demo_dashboard_and_review(app):
     button(app, "Save review decision").click().run()
     assert not app.exception
     app.sidebar.radio[0].set_value("Dashboard").run()
-    assert [m.value for m in app.metric] == ["8", "0", "2", "8"]
+    assert [m.value for m in app.metric] == ["8", "0", "2", "0", "8"]
 
 
 def test_registration_workflow(app):

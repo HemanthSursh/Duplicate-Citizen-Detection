@@ -71,7 +71,7 @@ def compare(left, right):
     exact = fingerprint(left) == fingerprint(right)
     probable = scores["full_name"] >= 65 and score >= THRESHOLD
     return {
-        "kind": "Exact" if exact else "Probable" if probable else None,
+        "kind": "Exact" if exact else "Probable" if probable else "Name review" if a["full_name"] == b["full_name"] else None,
         "score": score,
         "scores": scores,
         "matching_fields": [k for k in FIELDS if a[k] == b[k]],
@@ -85,3 +85,14 @@ def candidates(data, records):
         if match["kind"]:
             found.append({"record": record, **match})
     return sorted(found, key=lambda m: (-m["score"], m["record"]["id"]))
+
+
+def match_reasons(match):
+    """Explain the actual trigger without upgrading a low score to probable."""
+    if match["kind"] == "Exact":
+        return ["All four normalized fields have the same SHA-256 fingerprint."]
+    if match["kind"] == "Name review":
+        return ["Identical normalized full name: manual review is required even when other details differ.",
+                f"Weighted similarity {match['score']}/100 is below the {THRESHOLD}/100 probable threshold. A shared name is not proof of duplicate identity."]
+    return [f"Weighted similarity {match['score']}/100 meets the {THRESHOLD}/100 threshold.",
+            f"Name similarity {match['scores']['full_name']}/100 meets the 65/100 name guard."]

@@ -10,7 +10,7 @@ def registry(tmp_path):
 
 
 def test_empty(registry):
-    assert registry.stats() == dict(total=0, exact=0, probable=0, recent=0, reviewed=0)
+    assert registry.stats() == dict(total=0, exact=0, probable=0, name_review=0, recent=0, reviewed=0)
     assert registry.records() == []
 
 
@@ -67,7 +67,7 @@ def test_review_persists_without_modifying_records(registry):
 def test_demo_once(registry):
     assert registry.load_demo(DEMO)
     assert not registry.load_demo(DEMO)
-    assert registry.stats() == dict(total=8, exact=1, probable=2, recent=8, reviewed=0)
+    assert registry.stats() == dict(total=8, exact=1, probable=2, name_review=0, recent=8, reviewed=0)
 
 
 def test_sql_parameters(registry):

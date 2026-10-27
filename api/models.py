@@ -21,7 +21,7 @@ class CustomerInput(BaseModel):
 
 class Candidate(BaseModel):
     record_id: str
-    kind: Literal["exact", "probable"]
+    kind: Literal["exact", "probable", "name_review"]
     similarity_score: float
     field_scores: dict[str, float]
     matching_fields: list[str]

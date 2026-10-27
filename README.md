@@ -39,7 +39,7 @@ The main local dashboard has no login. The optional REST API requires an API key
 
 ## Four simple screens
 
-- **Dashboard:** actual SQLite record totals, exact/probable candidate pairs awaiting review, records added in the rolling last seven days, clickable recent citizens, registration activity and navigation shortcuts.
+- **Dashboard:** actual SQLite record totals, exact/probable/name-review candidate pairs awaiting review, records added in the rolling last seven days, clickable recent citizens, registration activity and navigation shortcuts.
 - **Register citizen:** name, date of birth, phone and address. Validate first, check candidates, then save. Flagged records require a separate review step, a reason and explicit confirmation. Cancel does not save anything.
 - **Citizen records:** search records by name, phone or address. Click a name to open the full citizen profile. Internal IDs stay hidden in lists and are available only in the profile's internal-details section.
 - **Duplicate review:** compare candidate pairs side by side, see field scores and save either `Confirmed duplicate` or `Distinct records` with a note. Both records remain untouched. Reviewed pairs leave the pending dashboard counts but remain in the Reviewed/All candidates views.
@@ -100,6 +100,16 @@ A SQLite `BEGIN IMMEDIATE` transaction checks phone availability and rechecks ma
 A non-exact pair becomes **Probable** when the weighted score is at least 78/100 **and** the name score is at least 65/100. Exact pairs are not counted again as probable. Scores are similarity measures, **not probabilities**, accuracy claims or proof of identity. The weights and threshold are simple demonstration rules defined in `citizen/matching.py`.
 
 The system can miss duplicates, especially when phone, birthday or country-code conventions differ. People with shared details can be flagged incorrectly. It never merges or deletes records or rejects a person solely because of a similarity score. The separate phone-uniqueness rule blocks registrations with an existing phone.
+
+## Same-name review
+
+An identical normalized full name now triggers **Name review** even when date of birth, phone and address differ and the weighted score is below 78. Normalization uses Unicode NFKC, case folding and collapsed whitespace. A similar spelling or reordered name alone does not trigger this rule.
+
+Exact and Probable rules keep their priority and existing thresholds. The score is not inflated: two Test1 records with the same address but different birthdays and phones score 55/100 and require name review, not a confirmed-duplicate verdict. Shared names can belong to different people.
+
+Already-saved pairs appear automatically in **Duplicate review > Awaiting review** after refreshing the same browser. No data reset or migration is needed. Select the Name review pair, choose **Distinct records**, add a note and save the decision to remove it from pending counts while keeping both records. New registrations with a matching name require the existing review, reason and explicit separate-record confirmation. Duplicate phones are still blocked.
+
+The dashboard shows a separate Name review count. The fictional eight-record demo has zero name-only review pairs (its identical names already qualify as Exact or Probable).
 
 ## Storage and safety
 

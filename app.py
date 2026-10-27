@@ -8,7 +8,7 @@ from citizen.database import Registry, NewMatchesError
 from citizen.config import database_path
 from citizen.demo import DEMO
 from citizen.documents import validate_documents
-from citizen.matching import FIELDS, THRESHOLD, WEIGHTS, validate, serialize, fingerprint
+from citizen.matching import FIELDS, THRESHOLD, WEIGHTS, validate, serialize, fingerprint, match_reasons
 
 st.set_page_config(page_title="Citizen records | Duplicate detection", page_icon="🔎", layout="wide")
 ROOT = Path(__file__).resolve().parent
@@ -112,6 +112,8 @@ def show_match(match):
     r = match["record"]
     with st.container(border=True):
         st.markdown(f"**{match['kind']} candidate · {match['score']:.1f}/100 similarity**")
+        for reason in match_reasons(match):
+            st.caption(reason)
         if st.button(r["full_name"], key="match_" + r["id"]):
             profile(r)
         st.caption("Identical after normalization: " + (", ".join(LABELS[f] for f in match["matching_fields"]) or "none"))
@@ -145,10 +147,11 @@ if page == "Dashboard":
         st.button("+ Register a citizen", on_click=go, args=("Register citizen",), key="hero_register")
     st.subheader("Registry at a glance")
     stats = registry.stats()
-    for col, (label, key, help_text) in zip(st.columns(4), [
+    for col, (label, key, help_text) in zip(st.columns(5), [
         ("Citizen records", "total", "All saved citizen records."),
         ("Exact candidates", "exact", "Unreviewed pairs with identical normalized fields."),
         ("Probable candidates", "probable", "Unreviewed pairs that pass the fuzzy screening rule."),
+        ("Name review", "name_review", "Identical normalized names below the probable threshold. Review only, not proof of identity."),
         ("Added in 7 days", "recent", "Saved in the last rolling seven days, using UTC timestamps.")
     ]):
         col.metric(label, stats[key], help=help_text)
@@ -182,7 +185,7 @@ if page == "Dashboard":
         st.bar_chart(chart, height=190, color="#3676ed")
     with workload, st.container(border=True):
         st.markdown("**Review workspace**")
-        pending_count = stats["exact"] + stats["probable"]
+        pending_count = stats["exact"] + stats["probable"] + stats["name_review"]
         st.write(f"{pending_count} candidate pairs need a decision.")
         total_pairs = pending_count + stats["reviewed"]
         st.progress(stats["reviewed"] / total_pairs if total_pairs else 0)
@@ -276,6 +279,7 @@ else:
     with st.expander("How matching works"):
         st.write("Exact: SHA-256 of all four normalized fields in sorted-key JSON. Name and address use Unicode normalization, case folding and collapsed whitespace. Phone separators and a leading + are ignored; country codes are never inferred.")
         st.write(f"Probable: weighted score at least {THRESHOLD:.0f}/100, plus a name score of at least 65. Name 40%, date of birth 25%, phone 20%, address 15%. RapidFuzz token-sort similarity scores name and address. Date and phone score 100 only when identical, otherwise 0.")
+        st.write("Name review: an identical full name after Unicode normalization, case folding and whitespace cleanup also requires review, even below the probable threshold. Other details can differ. Name order and spelling are not silently changed by this rule.")
         st.caption("These are demonstration screening rules, not calibrated probabilities or proof of identity. Some duplicates will be missed. Shared details can flag different people.")
     pairs = registry.pairs()
     filter_choice = st.radio("Show", ["Awaiting review", "Reviewed", "All candidates"], horizontal=True)
@@ -288,6 +292,8 @@ else:
         index = st.selectbox("Choose a candidate pair", indices, format_func=lambda i: f"{filtered[i]['kind']} · {filtered[i]['left']['full_name']} / {filtered[i]['right']['full_name']} · {filtered[i]['score']:.1f}/100")
         pair = filtered[index]
         st.markdown(f"### {pair['kind']} candidate · {pair['score']:.1f}/100")
+        for reason in match_reasons(pair):
+            st.info(reason)
         left, right = st.columns(2)
         with left, st.container(border=True):
             identity(pair["left"])

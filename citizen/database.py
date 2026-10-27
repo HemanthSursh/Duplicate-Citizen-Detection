@@ -156,7 +156,8 @@ class Registry:
             total = db.execute("SELECT count(*) FROM citizens").fetchone()[0]
             recent = db.execute("SELECT count(*) FROM citizens WHERE created_at>=?", (cutoff,)).fetchone()[0]
         return {"total": total, "exact": sum(p["kind"] == "Exact" for p in pending),
-                "probable": sum(p["kind"] == "Probable" for p in pending), "recent": recent,
+                "probable": sum(p["kind"] == "Probable" for p in pending),
+                "name_review": sum(p["kind"] == "Name review" for p in pending), "recent": recent,
                 "reviewed": len(pairs) - len(pending)}
 
     def load_demo(self, records):

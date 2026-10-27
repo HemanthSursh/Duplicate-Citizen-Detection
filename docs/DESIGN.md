@@ -45,8 +45,12 @@ Optional document references must start with DEMO-AAD- or DEMO-DL-. They are fic
 
 ## API extension
 
-`citizen/matching.py` remains unchanged. `citizen/service.py` maps its real match results into field explanations without stored personal details. API and dashboard share `citizen/config.py` and `Registry`. No schema change or second database was needed. NewMatchesError carries the candidates computed under the write lock so a 409 cannot be based on a stale second query.
+`citizen/matching.py` is shared by dashboard and API. `citizen/service.py` maps its real match results into field explanations without stored personal details. API and dashboard share `citizen/config.py` and `Registry`. No schema change or second database was needed. NewMatchesError carries the candidates computed under the write lock so a 409 cannot be based on a stale second query.
 
 A user-requested exact-phone business rule now prevents new registrations with an existing normalized phone, even if the other details differ or a fuzzy review was acknowledged. It runs under the same BEGIN IMMEDIATE lock, preserving pre-existing duplicate data. The separate explicit fictional demo loader retains its intentionally duplicated fixtures. No UI or API edits/deletes existing records.
 
 The API key authorizes the whole local registry. No role/tenant isolation is implied. The separate sample client only calls HTTP; human review requests are downloadable local handoffs, not a notification service. See API.md for contracts and limits.
+
+## Same-name screening update
+
+After Exact and Probable checks, equality of normalized full names yields a separate Name review category. Scores remain unchanged. Candidate reasons, API enum and dashboard counts distinguish this lower-confidence trigger. The pair scanner discovers earlier saved pairs without rewriting records; saved human decisions still suppress pending counts. Phone blocking retains precedence.
